@@ -6,18 +6,6 @@
 
 package vsdl
 
-import (
-	"syscall"
-)
-
-const defaultLibName = ""
+const sdlLibraryDataGOARCH = ""
 
 var sdlLibraryData []byte
-
-func init() {
-	panic("this operating-system is not supported")
-}
-
-func loadLibrary(name string) (syscall.Handle, error) {
-	return 0, nil
-}
