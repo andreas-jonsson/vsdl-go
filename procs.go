@@ -30,6 +30,7 @@ var (
 	sdlUpdateTextureProc,
 	sdlRenderCopyProc,
 	sdlRenderPresentProc,
+	sdlRenderSetLogicalSizeProc,
 	sdlPollEventProc uintptr
 )
 
@@ -123,6 +124,10 @@ func initProcs() error {
 	}
 
 	if sdlRenderPresentProc, err = getProc("SDL_RenderPresent"); err != nil {
+		return err
+	}
+
+	if sdlRenderSetLogicalSizeProc, err = getProc("SDL_RenderSetLogicalSize"); err != nil {
 		return err
 	}
 

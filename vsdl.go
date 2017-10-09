@@ -50,9 +50,10 @@ func ConfigWithLogger(l *logpkg.Logger) Config {
 	}
 }
 
-func ConfigWithRenderer(size image.Point) Config {
+func ConfigWithRenderer(size, logical image.Point) Config {
 	return func() error {
 		windowSize = size
+		logicalSize = logical
 		return nil
 	}
 }
@@ -70,7 +71,7 @@ var (
 )
 
 var (
-	windowSize                image.Point
+	windowSize, logicalSize   image.Point
 	window, renderer, texture uintptr
 )
 
@@ -103,6 +104,7 @@ func sendCommand(async bool, f func() error) error {
 
 func Initialize(configs ...Config) error {
 	windowSize = image.Point{640, 480}
+	logicalSize = image.Point{}
 	errorChan = make(chan error)
 	commandChan = make(chan command)
 
@@ -165,7 +167,22 @@ func Initialize(configs ...Config) error {
 			}
 		}()
 
-		if texture, _, eno = syscall.Syscall6(sdlCreateTextureProc, 5, renderer, 0, 1, uintptr(windowSize.X), uintptr(windowSize.Y), 0); eno != 0 {
+		if logicalSize.X != 0 {
+			if ret, _, eno = syscall.Syscall(sdlRenderSetLogicalSizeProc, 3, renderer, uintptr(logicalSize.X), uintptr(logicalSize.Y)); eno != 0 {
+				log.Println(ret)
+			}
+			if ret != 0 {
+				errorChan <- sdlToGoError()
+				return
+			}
+		}
+
+		backBufferSize := windowSize
+		if logicalSize.X != 0 {
+			backBufferSize = logicalSize
+		}
+
+		if texture, _, eno = syscall.Syscall6(sdlCreateTextureProc, 5, renderer, 0, 1, uintptr(backBufferSize.X), uintptr(backBufferSize.Y), 0); eno != 0 {
 			log.Println(eno)
 		}
 		if texture == 0 {
@@ -216,7 +233,14 @@ func Events() <-chan Event {
 }
 
 func Present(img image.Image) error {
-	if img.Bounds().Size() != windowSize {
+	imgSize := img.Bounds().Size()
+	backBufferSize := windowSize
+
+	if logicalSize.X != 0 {
+		backBufferSize = logicalSize
+	}
+
+	if imgSize != backBufferSize {
 		return errors.New("image is not the same size as the back-buffer")
 	}
 

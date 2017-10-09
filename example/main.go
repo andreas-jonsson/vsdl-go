@@ -5,19 +5,24 @@
 package main
 
 import (
-	"fmt"
 	"image"
+	"log"
 
-	"github.com/andreas-jonsson/vsdl"
+	"github.com/andreas-jonsson/vsdl-go"
+)
+
+var (
+	windowSize  = image.Pt(1280, 720)
+	logicalSize = image.Pt(320, 180)
 )
 
 func main() {
-	if err := vsdl.Initialize(); err != nil {
-		panic(err)
+	if err := vsdl.Initialize(vsdl.ConfigWithRenderer(windowSize, logicalSize)); err != nil {
+		log.Fatalln(err)
 	}
 	defer vsdl.Shutdown()
 
-	img := image.NewRGBA(image.Rect(0, 0, 640, 480))
+	img := image.NewRGBA(image.Rectangle{Max: logicalSize})
 
 	for {
 		for ev := range vsdl.Events() {
@@ -29,13 +34,13 @@ func main() {
 					return
 				}
 
-				fmt.Printf("%s: %X\n", t.Keysym, t.Keysym.Sym)
+				log.Printf("%s: %X\n", t.Keysym, t.Keysym.Sym)
 			}
 			ev.Release()
 		}
 
 		if err := vsdl.Present(img); err != nil {
-			panic(err)
+			log.Println(err)
 		}
 	}
 }
