@@ -60,6 +60,8 @@ func ConfigWithRenderer(size, logical image.Point) Config {
 
 var log = logpkg.New(ioutil.Discard, "", logpkg.LstdFlags)
 
+var sdlExpectedVersion = [2]byte{2, 0}
+
 type command struct {
 	f func() error
 	a bool
@@ -116,6 +118,15 @@ func Initialize(configs ...Config) error {
 
 	if err := initProcs(); err != nil {
 		return nil
+	}
+
+	var version [3]byte
+	if _, _, eno := syscall.Syscall(sdlGetVersionProc, 1, uintptr(unsafe.Pointer(&version)), 0, 0); eno != 0 {
+		log.Println(eno)
+	}
+
+	if version[0] != sdlExpectedVersion[0] || version[1] != sdlExpectedVersion[1] {
+		log.Printf("Expected SDL version %d.%d.x, but version %d.%d.%d was loaded.\n", sdlExpectedVersion[0], sdlExpectedVersion[1], version[0], version[1], version[2])
 	}
 
 	go func() {

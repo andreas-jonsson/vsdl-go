@@ -22,6 +22,7 @@ var (
 	sdlInitProc,
 	sdlQuitProc,
 	sdlGetErrorProc,
+	sdlGetVersionProc,
 	sdlCreateWindowAndRendererProc,
 	sdlDestroyRendererProc,
 	sdlDestroyWindowProc,
@@ -92,6 +93,10 @@ func initProcs() error {
 	}
 
 	if sdlGetErrorProc, err = getProc("SDL_GetError"); err != nil {
+		return err
+	}
+
+	if sdlGetVersionProc, err = getProc("SDL_GetVersion"); err != nil {
 		return err
 	}
 
