@@ -78,10 +78,8 @@ var (
 )
 
 func sdlToGoError() error {
-	ret, _, eno := syscall.Syscall(sdlGetErrorProc, 0, 0, 0, 0)
-	if eno != 0 {
-		panic(eno)
-	} else if ret == 0 {
+	ret, _, _ := syscall.Syscall(sdlGetErrorProc, 0, 0, 0, 0)
+	if ret == 0 {
 		return errors.New("unknown error")
 	}
 
@@ -121,9 +119,7 @@ func Initialize(configs ...Config) error {
 	}
 
 	var version [3]byte
-	if _, _, eno := syscall.Syscall(sdlGetVersionProc, 1, uintptr(unsafe.Pointer(&version)), 0, 0); eno != 0 {
-		log.Println(eno)
-	}
+	syscall.Syscall(sdlGetVersionProc, 1, uintptr(unsafe.Pointer(&version)), 0, 0)
 
 	if version[0] != sdlExpectedVersion[0] || version[1] != sdlExpectedVersion[1] {
 		log.Printf("Expected SDL version %d.%d.x, but version %d.%d.%d was loaded.\n", sdlExpectedVersion[0], sdlExpectedVersion[1], version[0], version[1], version[2])
@@ -138,51 +134,38 @@ func Initialize(configs ...Config) error {
 			errorChan <- nil
 		}()
 
-		var (
-			ret uintptr
-			eno syscall.Errno
-		)
+		var ret uintptr
 
 		const sdlInitVideoFlag uint32 = 0x00000020
 
-		if ret, _, eno = syscall.Syscall(sdlInitProc, 1, uintptr(sdlInitVideoFlag), 0, 0); eno != 0 {
-			log.Println(eno)
-		}
-		if ret != 0 {
+		if ret, _, _ = syscall.Syscall(sdlInitProc, 1, uintptr(sdlInitVideoFlag), 0, 0); ret != 0 {
 			errorChan <- sdlToGoError()
 			return
 		}
 
 		defer func() {
-			if _, _, eno := syscall.Syscall(sdlQuitProc, 0, 0, 0, 0); eno != 0 {
-				log.Println(eno)
-			}
+			syscall.Syscall(sdlQuitProc, 0, 0, 0, 0)
 		}()
 
 		windowPtr := uintptr(unsafe.Pointer(&window))
 		rendererPtr := uintptr(unsafe.Pointer(&renderer))
 
-		if ret, _, eno = syscall.Syscall6(sdlCreateWindowAndRendererProc, 5, uintptr(windowSize.X), uintptr(windowSize.Y), 0, windowPtr, rendererPtr, 0); eno != 0 {
-			panic(eno)
-		} else if ret != 0 {
+		if ret, _, _ = syscall.Syscall6(sdlCreateWindowAndRendererProc, 5, uintptr(windowSize.X), uintptr(windowSize.Y), 0, windowPtr, rendererPtr, 0); ret != 0 {
 			errorChan <- sdlToGoError()
 			return
 		}
 
 		defer func() {
-			if ret, _, eno = syscall.Syscall(sdlDestroyRendererProc, 1, renderer, 0, 0); eno != 0 || ret != 0 {
+			if ret, _, _ = syscall.Syscall(sdlDestroyRendererProc, 1, renderer, 0, 0); ret != 0 {
 				log.Println("could not destroy renderer")
 			}
-			if ret, _, eno = syscall.Syscall(sdlDestroyWindowProc, 1, window, 0, 0); eno != 0 || ret != 0 {
+			if ret, _, _ = syscall.Syscall(sdlDestroyWindowProc, 1, window, 0, 0); ret != 0 {
 				log.Println("could not destroy window")
 			}
 		}()
 
 		if logicalSize.X != 0 {
-			if ret, _, eno = syscall.Syscall(sdlRenderSetLogicalSizeProc, 3, renderer, uintptr(logicalSize.X), uintptr(logicalSize.Y)); eno != 0 {
-				log.Println(ret)
-			}
-			if ret != 0 {
+			if ret, _, _ = syscall.Syscall(sdlRenderSetLogicalSizeProc, 3, renderer, uintptr(logicalSize.X), uintptr(logicalSize.Y)); ret != 0 {
 				errorChan <- sdlToGoError()
 				return
 			}
@@ -193,16 +176,13 @@ func Initialize(configs ...Config) error {
 			backBufferSize = logicalSize
 		}
 
-		if texture, _, eno = syscall.Syscall6(sdlCreateTextureProc, 5, renderer, 0, 1, uintptr(backBufferSize.X), uintptr(backBufferSize.Y), 0); eno != 0 {
-			log.Println(eno)
-		}
-		if texture == 0 {
+		if texture, _, _ = syscall.Syscall6(sdlCreateTextureProc, 5, renderer, uintptr(pixelFormatABGR8888), 1, uintptr(backBufferSize.X), uintptr(backBufferSize.Y), 0); texture == 0 {
 			errorChan <- sdlToGoError()
 			return
 		}
 
 		defer func() {
-			if ret, _, eno = syscall.Syscall(sdlDestroyTextureProc, 1, texture, 0, 0); eno != 0 || ret != 0 {
+			if ret, _, _ = syscall.Syscall(sdlDestroyTextureProc, 1, texture, 0, 0); ret != 0 {
 				log.Println("could not destroy texture")
 			}
 		}()
@@ -261,22 +241,27 @@ func Present(img image.Image) error {
 	}
 
 	return sendCommand(false, func() error {
-		if ret, _, eno := syscall.Syscall6(sdlUpdateTextureProc, 4, texture, 0, uintptr(unsafe.Pointer(&rgba.Pix[0])), uintptr(rgba.Stride), 0, 0); eno != 0 {
-			panic(eno)
-		} else if ret != 0 {
+		if ret, _, _ := syscall.Syscall6(sdlUpdateTextureProc, 4, texture, 0, uintptr(unsafe.Pointer(&rgba.Pix[0])), uintptr(rgba.Stride), 0, 0); ret != 0 {
 			return sdlToGoError()
 		}
 
-		if ret, _, eno := syscall.Syscall6(sdlRenderCopyProc, 4, renderer, texture, 0, 0, 0, 0); eno != 0 {
-			panic(eno)
-		} else if ret != 0 {
+		if ret, _, _ := syscall.Syscall6(sdlRenderCopyProc, 4, renderer, texture, 0, 0, 0, 0); ret != 0 {
 			return sdlToGoError()
 		}
 
-		if _, _, eno := syscall.Syscall(sdlRenderPresentProc, 1, renderer, 0, 0); eno != 0 {
-			panic(eno)
-		}
-
+		syscall.Syscall(sdlRenderPresentProc, 1, renderer, 0, 0)
 		return nil
 	})
 }
+
+func definePixelFormat(ty, order, layout, bits, bytes uint32) uint32 {
+	return (1 << 28) | (ty << 24) | (order << 20) | (layout << 16) | (bits << 8) | (bytes << 0)
+}
+
+const (
+	pixelTypePacked32 = 6
+	packedOrderABGR   = 7
+	packedLayout8888  = 6
+)
+
+var pixelFormatABGR8888 = definePixelFormat(pixelTypePacked32, packedOrderABGR, packedLayout8888, 32, 4)
