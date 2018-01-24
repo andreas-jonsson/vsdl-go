@@ -10,6 +10,8 @@ import (
 	"unsafe"
 )
 
+const maxEvents = 4096
+
 func pollEvent() Event {
 	ev := eventPool.Get().(*sdlEvent)
 	up := unsafe.Pointer(ev)
