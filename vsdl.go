@@ -209,7 +209,7 @@ func Shutdown() error {
 }
 
 func Events() <-chan Event {
-	eventChan := make(chan Event)
+	eventChan := make(chan Event, maxEvents)
 	sendCommand(true, func() error {
 		for {
 			ev := pollEvent()
@@ -217,7 +217,12 @@ func Events() <-chan Event {
 				close(eventChan)
 				return nil
 			}
-			eventChan <- ev
+			
+			select {
+			case eventChan <- ev:
+			default:
+				log.Println("event channel overflow")
+			}
 		}
 	})
 	return eventChan
