@@ -6,7 +6,6 @@ package vsdl
 
 import (
 	"sync"
-	"syscall"
 	"unsafe"
 )
 
@@ -17,9 +16,7 @@ func pollEvent() Event {
 	up := unsafe.Pointer(ev)
 	aev := (*anyEvent)(up)
 
-	if ret, _, eno := syscall.Syscall(sdlPollEventProc, 1, uintptr(up), 0, 0); eno != 0 {
-		panic(eno)
-	} else if ret == 0 {
+	if !sdlPollEvent(uintptr(up)) {
 		aev.Release()
 		return nil
 	}

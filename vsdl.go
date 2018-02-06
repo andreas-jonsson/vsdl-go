@@ -7,14 +7,12 @@
 package vsdl
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"image"
 	"io/ioutil"
 	logpkg "log"
 	"runtime"
-	"syscall"
 	"unsafe"
 )
 
@@ -77,23 +75,6 @@ var (
 	window, renderer, texture uintptr
 )
 
-func sdlToGoError() error {
-	ret, _, _ := syscall.Syscall(sdlGetErrorProc, 0, 0, 0, 0)
-	if ret == 0 {
-		return errors.New("unknown error")
-	}
-
-	var buf bytes.Buffer
-
-	for {
-		p := (*byte)(unsafe.Pointer(ret))
-		if *p == 0 {
-			return newError(errors.New(buf.String()), "internal error")
-		}
-		buf.WriteByte(*p)
-	}
-}
-
 func sendCommand(async bool, f func() error) error {
 	commandChan <- command{f, async}
 	if !async {
@@ -118,9 +99,7 @@ func Initialize(configs ...Config) error {
 		return nil
 	}
 
-	var version [3]byte
-	syscall.Syscall(sdlGetVersionProc, 1, uintptr(unsafe.Pointer(&version)), 0, 0)
-
+	version := sdlGetVersion()
 	if version[0] != sdlExpectedVersion[0] || version[1] != sdlExpectedVersion[1] {
 		log.Printf("Expected SDL version %d.%d.x, but version %d.%d.%d was loaded.\n", sdlExpectedVersion[0], sdlExpectedVersion[1], version[0], version[1], version[2])
 	}
@@ -134,38 +113,25 @@ func Initialize(configs ...Config) error {
 			errorChan <- nil
 		}()
 
-		var ret uintptr
-
 		const sdlInitVideoFlag uint32 = 0x00000020
 
-		if ret, _, _ = syscall.Syscall(sdlInitProc, 1, uintptr(sdlInitVideoFlag), 0, 0); ret != 0 {
+		if sdlInit(sdlInitVideoFlag) {
 			errorChan <- sdlToGoError()
 			return
 		}
-
-		defer func() {
-			syscall.Syscall(sdlQuitProc, 0, 0, 0, 0)
-		}()
+		defer sdlQuit()
 
 		windowPtr := uintptr(unsafe.Pointer(&window))
 		rendererPtr := uintptr(unsafe.Pointer(&renderer))
 
-		if ret, _, _ = syscall.Syscall6(sdlCreateWindowAndRendererProc, 5, uintptr(windowSize.X), uintptr(windowSize.Y), 0, windowPtr, rendererPtr, 0); ret != 0 {
+		if sdlCreateWindowAndRenderer(windowSize, windowPtr, rendererPtr) {
 			errorChan <- sdlToGoError()
 			return
 		}
-
-		defer func() {
-			if ret, _, _ = syscall.Syscall(sdlDestroyRendererProc, 1, renderer, 0, 0); ret != 0 {
-				log.Println("could not destroy renderer")
-			}
-			if ret, _, _ = syscall.Syscall(sdlDestroyWindowProc, 1, window, 0, 0); ret != 0 {
-				log.Println("could not destroy window")
-			}
-		}()
+		defer sdlDestroyRendererAndWindow(window, renderer)
 
 		if logicalSize.X != 0 {
-			if ret, _, _ = syscall.Syscall(sdlRenderSetLogicalSizeProc, 3, renderer, uintptr(logicalSize.X), uintptr(logicalSize.Y)); ret != 0 {
+			if sdlRenderSetLogicalSize(renderer, logicalSize) {
 				errorChan <- sdlToGoError()
 				return
 			}
@@ -176,16 +142,11 @@ func Initialize(configs ...Config) error {
 			backBufferSize = logicalSize
 		}
 
-		if texture, _, _ = syscall.Syscall6(sdlCreateTextureProc, 5, renderer, uintptr(pixelFormatABGR8888), 1, uintptr(backBufferSize.X), uintptr(backBufferSize.Y), 0); texture == 0 {
+		if texture = sdlCreateTexture(renderer, backBufferSize); texture == 0 {
 			errorChan <- sdlToGoError()
 			return
 		}
-
-		defer func() {
-			if ret, _, _ = syscall.Syscall(sdlDestroyTextureProc, 1, texture, 0, 0); ret != 0 {
-				log.Println("could not destroy texture")
-			}
-		}()
+		defer sdlDestroyTexture(texture)
 
 		errorChan <- nil
 
@@ -217,7 +178,7 @@ func Events() <-chan Event {
 				close(eventChan)
 				return nil
 			}
-			
+
 			select {
 			case eventChan <- ev:
 			default:
@@ -246,15 +207,15 @@ func Present(img image.Image) error {
 	}
 
 	return sendCommand(false, func() error {
-		if ret, _, _ := syscall.Syscall6(sdlUpdateTextureProc, 4, texture, 0, uintptr(unsafe.Pointer(&rgba.Pix[0])), uintptr(rgba.Stride), 0, 0); ret != 0 {
+		if sdlUpdateTexture(texture, uintptr(unsafe.Pointer(&rgba.Pix[0])), uintptr(rgba.Stride)) {
 			return sdlToGoError()
 		}
 
-		if ret, _, _ := syscall.Syscall6(sdlRenderCopyProc, 4, renderer, texture, 0, 0, 0, 0); ret != 0 {
+		if sdlRenderCopy(renderer, texture) {
 			return sdlToGoError()
 		}
 
-		syscall.Syscall(sdlRenderPresentProc, 1, renderer, 0, 0)
+		sdlRenderPresent(renderer)
 		return nil
 	})
 }
