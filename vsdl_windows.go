@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"errors"
 	"image"
+	"os"
 	"syscall"
 	"unsafe"
 )
