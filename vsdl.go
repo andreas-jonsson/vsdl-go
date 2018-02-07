@@ -96,7 +96,7 @@ func Initialize(configs ...Config) error {
 	}
 
 	if err := initProcs(); err != nil {
-		return nil
+		return err
 	}
 
 	version := sdlGetVersion()

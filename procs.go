@@ -7,14 +7,12 @@ package vsdl
 import (
 	"errors"
 	"io/ioutil"
-	"os"
 	"path"
 	"runtime"
-	"syscall"
 )
 
 var (
-	libraryHandle                syscall.Handle
+	libraryHandle                libHandle
 	libraryName, removeDirectory string
 )
 
@@ -35,18 +33,7 @@ var (
 	sdlPollEventProc uintptr
 )
 
-func unloadLibrary() {
-	syscall.FreeLibrary(libraryHandle)
-	if removeDirectory != "" {
-		os.RemoveAll(removeDirectory)
-		removeDirectory = ""
-	}
-
-	libraryName = ""
-	libraryHandle = 0
-}
-
-func loadEmbeddedLibrary(name string) (syscall.Handle, error) {
+func loadEmbeddedLibrary(name string) (libHandle, error) {
 	if name != "" {
 		return loadLibrary(name)
 	}
@@ -69,15 +56,11 @@ func loadEmbeddedLibrary(name string) (syscall.Handle, error) {
 	return loadLibrary(libraryName)
 }
 
-func getProc(name string) (uintptr, error) {
-	proc, err := syscall.GetProcAddress(libraryHandle, name)
-	if err != nil {
-		return 0, newError(err, "could not get proc: "+name)
-	}
-	return proc, nil
-}
-
 func initProcs() error {
+	if runtime.GOOS != "windows" {
+		return nil
+	}
+
 	var err error
 	libraryHandle, err = loadEmbeddedLibrary(libraryName)
 	if err != nil {

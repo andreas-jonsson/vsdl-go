@@ -12,14 +12,35 @@ import (
 	"unsafe"
 )
 
+type libHandle = syscall.Handle
+
 const defaultLibName = "SDL2.dll"
 
-func loadLibrary(name string) (syscall.Handle, error) {
+func loadLibrary(name string) (libHandle, error) {
 	dll, err := syscall.LoadDLL(name)
 	if err != nil {
 		return 0, err
 	}
 	return dll.Handle, err
+}
+
+func unloadLibrary() {
+	syscall.FreeLibrary(libraryHandle)
+	if removeDirectory != "" {
+		os.RemoveAll(removeDirectory)
+		removeDirectory = ""
+	}
+
+	libraryName = ""
+	libraryHandle = 0
+}
+
+func getProc(name string) (uintptr, error) {
+	proc, err := syscall.GetProcAddress(libraryHandle, name)
+	if err != nil {
+		return 0, newError(err, "could not get proc: "+name)
+	}
+	return proc, nil
 }
 
 func sdlToGoError() error {
