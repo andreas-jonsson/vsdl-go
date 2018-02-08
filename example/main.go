@@ -17,30 +17,31 @@ var (
 )
 
 func main() {
-	if err := vsdl.Initialize(vsdl.ConfigWithRenderer(windowSize, logicalSize)); err != nil {
-		log.Fatalln(err)
-	}
-	defer vsdl.Shutdown()
+	f := func() error {
+		img := image.NewRGBA(image.Rectangle{Max: logicalSize})
 
-	img := image.NewRGBA(image.Rectangle{Max: logicalSize})
+		for {
+			for ev := range vsdl.Events() {
+				switch t := ev.(type) {
+				case *vsdl.QuitEvent:
+					return nil
+				case *vsdl.KeyDownEvent:
+					if t.Keysym.IsKey(vsdl.EscKey) {
+						return nil
+					}
 
-	for {
-		for ev := range vsdl.Events() {
-			switch t := ev.(type) {
-			case *vsdl.QuitEvent:
-				return
-			case *vsdl.KeyDownEvent:
-				if t.Keysym.IsKey(vsdl.EscKey) {
-					return
+					log.Printf("%s: %X\n", t.Keysym, t.Keysym.Sym)
 				}
-
-				log.Printf("%s: %X\n", t.Keysym, t.Keysym.Sym)
+				ev.Release()
 			}
-			ev.Release()
-		}
 
-		if err := vsdl.Present(img); err != nil {
-			log.Println(err)
+			if err := vsdl.Present(img); err != nil {
+				log.Println(err)
+			}
 		}
+	}
+
+	if err := vsdl.Initialize(f, vsdl.ConfigWithRenderer(windowSize, logicalSize)); err != nil {
+		log.Fatalln(err)
 	}
 }

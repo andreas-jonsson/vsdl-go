@@ -75,6 +75,10 @@ var (
 	window, renderer, texture uintptr
 )
 
+func init(){
+	runtime.LockOSThread()
+}
+
 func sendCommand(async bool, f func() error) error {
 	commandChan <- command{f, async}
 	if !async {
@@ -83,7 +87,7 @@ func sendCommand(async bool, f func() error) error {
 	return nil
 }
 
-func Initialize(configs ...Config) error {
+func Initialize(f func() error, configs ...Config) error {
 	windowSize = image.Point{640, 480}
 	logicalSize = image.Point{}
 	errorChan = make(chan error)
@@ -98,74 +102,57 @@ func Initialize(configs ...Config) error {
 	if err := initProcs(); err != nil {
 		return nil
 	}
+	defer unloadLibrary()
 
 	version := sdlGetVersion()
 	if version[0] != sdlExpectedVersion[0] || version[1] != sdlExpectedVersion[1] {
 		log.Printf("Expected SDL version %d.%d.x, but version %d.%d.%d was loaded.\n", sdlExpectedVersion[0], sdlExpectedVersion[1], version[0], version[1], version[2])
 	}
 
+	const sdlInitVideoFlag uint32 = 0x00000020
+
+	if sdlInit(sdlInitVideoFlag) {
+		return sdlToGoError()
+	}
+	defer sdlQuit()
+
+	windowPtr := uintptr(unsafe.Pointer(&window))
+	rendererPtr := uintptr(unsafe.Pointer(&renderer))
+
+	if sdlCreateWindowAndRenderer(windowSize, windowPtr, rendererPtr) {
+		return sdlToGoError()
+	}
+	defer sdlDestroyRendererAndWindow(window, renderer)
+
+	if logicalSize.X != 0 {
+		if sdlRenderSetLogicalSize(renderer, logicalSize) {
+			return sdlToGoError()
+		}
+	}
+
+	backBufferSize := windowSize
+	if logicalSize.X != 0 {
+		backBufferSize = logicalSize
+	}
+
+	if texture = sdlCreateTexture(renderer, backBufferSize); texture == 0 {
+		return sdlToGoError()
+	}
+	defer sdlDestroyTexture(texture)
+
 	go func() {
-		runtime.LockOSThread()
-		defer runtime.UnlockOSThread()
-
-		defer func() {
-			unloadLibrary()
-			errorChan <- nil
-		}()
-
-		const sdlInitVideoFlag uint32 = 0x00000020
-
-		if sdlInit(sdlInitVideoFlag) {
-			errorChan <- sdlToGoError()
-			return
-		}
-		defer sdlQuit()
-
-		windowPtr := uintptr(unsafe.Pointer(&window))
-		rendererPtr := uintptr(unsafe.Pointer(&renderer))
-
-		if sdlCreateWindowAndRenderer(windowSize, windowPtr, rendererPtr) {
-			errorChan <- sdlToGoError()
-			return
-		}
-		defer sdlDestroyRendererAndWindow(window, renderer)
-
-		if logicalSize.X != 0 {
-			if sdlRenderSetLogicalSize(renderer, logicalSize) {
-				errorChan <- sdlToGoError()
-				return
-			}
-		}
-
-		backBufferSize := windowSize
-		if logicalSize.X != 0 {
-			backBufferSize = logicalSize
-		}
-
-		if texture = sdlCreateTexture(renderer, backBufferSize); texture == 0 {
-			errorChan <- sdlToGoError()
-			return
-		}
-		defer sdlDestroyTexture(texture)
-
-		errorChan <- nil
-
-		for c := range commandChan {
-			err := c.f()
-			if !c.a {
-				errorChan <- err
-			}
-		}
+		err := f()
+		close(commandChan)
+		errorChan <- err
 	}()
 
-	return <-errorChan
-}
+	for c := range commandChan {
+		err := c.f()
+		if !c.a {
+			errorChan <- err
+		}
+	}
 
-func Shutdown() error {
-	sendCommand(true, func() error {
-		close(commandChan)
-		return nil
-	})
 	return <-errorChan
 }
 
