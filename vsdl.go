@@ -100,7 +100,7 @@ func Initialize(f func() error, configs ...Config) error {
 	}
 
 	if err := initProcs(); err != nil {
-		return nil
+		return err
 	}
 	defer unloadLibrary()
 
