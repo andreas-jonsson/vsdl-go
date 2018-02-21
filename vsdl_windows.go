@@ -102,15 +102,15 @@ func sdlRenderSetLogicalSize(renderer uintptr, logicalSize image.Point) bool {
 }
 
 func sdlToggleFullscreen(window uintptr) (bool, error) {
-	flags, _, _ := syscall.Syscall(sdlGetWindowFlagsProc, 1, window)
+	flags, _, _ := syscall.Syscall(sdlGetWindowFlagsProc, 1, window, 0, 0)
 	isFullscreen := (uint32(flags) & sdl_WINDOW_FULLSCREEN) != 0
 
 	if isFullscreen {
-		syscall.Syscall(sdlSetWindowFullscreenProc, 2, window, 0)
+		syscall.Syscall(sdlSetWindowFullscreenProc, 2, window, 0, 0)
 		return false, sdlToGoError()
 	}
 
-	syscall.Syscall(sdlSetWindowFullscreenProc, 2, window, uintptr(defaultFullscreenFlag))
+	syscall.Syscall(sdlSetWindowFullscreenProc, 2, window, uintptr(defaultFullscreenFlag), uintptr(0))
 	return true, sdlToGoError()
 }
 
