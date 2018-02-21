@@ -74,14 +74,14 @@ func sdlInit(flags uint32) bool {
 }
 
 func sdlQuit() {
-	sdlShowCursor(1)
+	syscall.Syscall(sdlShowCursorProc, 1, 1, 0, 0)
 	syscall.Syscall(sdlQuitProc, 0, 0, 0, 0)
 }
 
 func sdlCreateWindowAndRenderer(windowSize image.Point, windowPtr, rendererPtr uintptr) bool {
 	ret, _, _ := syscall.Syscall6(sdlCreateWindowAndRendererProc, 5, uintptr(windowSize.X), uintptr(windowSize.Y), 0, windowPtr, rendererPtr, 0)
 	if ret == 0 {
-		sdlShowCursor(0)
+		syscall.Syscall(sdlShowCursorProc, 1, 0, 0, 0)
 		return false
 	}
 	return true
