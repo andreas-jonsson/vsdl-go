@@ -5,6 +5,7 @@
 package vsdl
 
 import (
+	"C"
 	"bytes"
 	"errors"
 	"image"
@@ -73,12 +74,17 @@ func sdlInit(flags uint32) bool {
 }
 
 func sdlQuit() {
+	sdlShowCursor(1)
 	syscall.Syscall(sdlQuitProc, 0, 0, 0, 0)
 }
 
 func sdlCreateWindowAndRenderer(windowSize image.Point, windowPtr, rendererPtr uintptr) bool {
 	ret, _, _ := syscall.Syscall6(sdlCreateWindowAndRendererProc, 5, uintptr(windowSize.X), uintptr(windowSize.Y), 0, windowPtr, rendererPtr, 0)
-	return ret != 0
+	if ret == 0 {
+		sdlShowCursor(0)
+		return false
+	}
+	return true
 }
 
 func sdlDestroyRendererAndWindow(window, renderer uintptr) {
@@ -93,6 +99,19 @@ func sdlDestroyRendererAndWindow(window, renderer uintptr) {
 func sdlRenderSetLogicalSize(renderer uintptr, logicalSize image.Point) bool {
 	ret, _, _ := syscall.Syscall(sdlRenderSetLogicalSizeProc, 3, renderer, uintptr(logicalSize.X), uintptr(logicalSize.Y))
 	return ret != 0
+}
+
+func sdlToggleFullscreen(window uintptr) (bool, error) {
+	flags, _, _ := syscall.Syscall(sdlGetWindowFlagsProc, 1, window)
+	isFullscreen := (uint32(flags) & sdl_WINDOW_FULLSCREEN) != 0
+
+	if isFullscreen {
+		syscall.Syscall(sdlSetWindowFullscreenProc, 2, window, 0)
+		return false, sdlToGoError()
+	}
+
+	syscall.Syscall(sdlSetWindowFullscreenProc, 2, window, uintptr(defaultFullscreenFlag))
+	return true, sdlToGoError()
 }
 
 func sdlCreateTexture(renderer uintptr, backBufferSize image.Point) uintptr {

@@ -55,6 +55,7 @@ func sdlInit(flags uint32) bool {
 }
 
 func sdlQuit() {
+	C.SDL_ShowCursor(1)
 	C.SDL_Quit()
 }
 
@@ -66,7 +67,11 @@ func sdlCreateWindowAndRenderer(windowSize image.Point, windowPtr, rendererPtr u
 		(**C.SDL_Window)(unsafe.Pointer(windowPtr)),
 		(**C.SDL_Renderer)(unsafe.Pointer(rendererPtr)),
 	)
-	return ret != 0
+	if ret == 0 {
+		C.SDL_ShowCursor(0)
+		return false
+	}
+	return true
 }
 
 func sdlDestroyRendererAndWindow(window, renderer uintptr) {
@@ -82,6 +87,20 @@ func sdlDestroyRendererAndWindow(window, renderer uintptr) {
 
 func sdlRenderSetLogicalSize(renderer uintptr, logicalSize image.Point) bool {
 	return C.SDL_RenderSetLogicalSize((*C.SDL_Renderer)(unsafe.Pointer(renderer)), C.int(logicalSize.X), C.int(logicalSize.Y)) != 0
+}
+
+func sdlToggleFullscreen(window uintptr) (bool, error) {
+	w := (*C.SDL_Window)(unsafe.Pointer(window))
+	flags := (uint32)(C.SDL_GetWindowFlags(w))
+	isFullscreen := (flags & sdl_WINDOW_FULLSCREEN) != 0
+
+	if isFullscreen {
+		C.SDL_SetWindowFullscreen(w, C.Uint32(0))
+		return false, sdlToGoError()
+	}
+
+	C.SDL_SetWindowFullscreen(w, C.Uint32(defaultFullscreenFlag))
+	return true, sdlToGoError()
 }
 
 func sdlCreateTexture(renderer uintptr, backBufferSize image.Point) uintptr {

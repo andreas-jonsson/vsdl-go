@@ -75,7 +75,7 @@ var (
 	window, renderer, texture uintptr
 )
 
-func init(){
+func init() {
 	runtime.LockOSThread()
 }
 
@@ -85,6 +85,16 @@ func sendCommand(async bool, f func() error) error {
 		return <-errorChan
 	}
 	return nil
+}
+
+func ToggleFullscreen() (bool, error) {
+	res := make(chan bool, 1)
+	err := sendCommand(false, func() error {
+		b, err := sdlToggleFullscreen(window)
+		res <- b
+		return err
+	})
+	return <-res, err
 }
 
 func Initialize(f func() error, configs ...Config) error {

@@ -22,8 +22,11 @@ var (
 	sdlGetErrorProc,
 	sdlGetVersionProc,
 	sdlCreateWindowAndRendererProc,
+	sdlShowCursorProc,
 	sdlDestroyRendererProc,
 	sdlDestroyWindowProc,
+	sdlGetWindowFlagsProc,
+	sdlSetWindowFullscreenProc,
 	sdlCreateTextureProc,
 	sdlDestroyTextureProc,
 	sdlUpdateTextureProc,
@@ -32,6 +35,11 @@ var (
 	sdlRenderSetLogicalSizeProc,
 	sdlPollEventProc uintptr
 )
+
+const sdl_WINDOW_FULLSCREEN uint32 = 0x00000001
+const sdl_WINDOW_FULLSCREEN_DESKTOP uint32 = sdl_WINDOW_FULLSCREEN | 0x00001000
+
+const defaultFullscreenFlag = sdl_WINDOW_FULLSCREEN_DESKTOP
 
 func loadEmbeddedLibrary(name string) (libHandle, error) {
 	if name != "" {
@@ -87,11 +95,23 @@ func initProcs() error {
 		return err
 	}
 
+	if sdlShowCursorProc, err = getProc("SDL_ShowCursor"); err != nil {
+		return err
+	}
+
 	if sdlDestroyRendererProc, err = getProc("SDL_DestroyRenderer"); err != nil {
 		return err
 	}
 
 	if sdlDestroyWindowProc, err = getProc("SDL_DestroyWindow"); err != nil {
+		return err
+	}
+
+	if sdlGetWindowFlagsProc, err = getProc("SDL_GetWindowFlags"); err != nil {
+		return err
+	}
+
+	if sdlSetWindowFullscreenProc, err = getProc("SDL_SetWindowFullscreen"); err != nil {
 		return err
 	}
 
