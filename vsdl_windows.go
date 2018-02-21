@@ -5,7 +5,6 @@
 package vsdl
 
 import (
-	"C"
 	"bytes"
 	"errors"
 	"image"
