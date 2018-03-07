@@ -43,7 +43,7 @@ func downloadAndExtract(url, name string) error {
 			}
 			defer in.Close()
 
-			out, err := os.Create(fmt.Sprintf("sdl_%s.go", runtime.GOOS))
+			out, err := os.Create(fmt.Sprintf("../sdl_%s.go", runtime.GOOS))
 			if err != nil {
 				return err
 			}
@@ -67,7 +67,7 @@ func downloadAndExtract(url, name string) error {
 }
 
 func main() {
-	if err := downloadAndExtract("https://www.libsdl.org/release/SDL2-2.0.6-win32-x64.zip", "SDL2.dll"); err != nil {
+	if err := downloadAndExtract("https://www.libsdl.org/release/SDL2-2.0.8-win32-x64.zip", "SDL2.dll"); err != nil {
 		panic(err)
 	}
 }

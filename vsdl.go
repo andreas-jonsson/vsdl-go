@@ -14,6 +14,7 @@ import (
 	logpkg "log"
 	"runtime"
 	"unsafe"
+	"sync"
 )
 
 type Error struct {
@@ -186,27 +187,31 @@ func Events() <-chan Event {
 	return eventChan
 }
 
-func Present(img image.Image) error {
+func Present(img image.Image) (*sync.WaitGroup, error) {
 	imgSize := img.Bounds().Size()
 	backBufferSize := windowSize
+	wg := new(sync.WaitGroup)
 
 	if logicalSize.X != 0 {
 		backBufferSize = logicalSize
 	}
 
 	if imgSize != backBufferSize {
-		return errors.New("image is not the same size as the back-buffer")
+		return wg, errors.New("image is not the same size as the back-buffer")
 	}
 
 	rgba, ok := img.(*image.RGBA)
 	if !ok {
-		return errors.New("invalid image format")
+		return wg, errors.New("invalid image format")
 	}
-
-	return sendCommand(false, func() error {
+	
+	wg.Add(1)
+	return wg, sendCommand(false, func() error {
 		if sdlUpdateTexture(texture, uintptr(unsafe.Pointer(&rgba.Pix[0])), uintptr(rgba.Stride)) {
+			wg.Done()
 			return sdlToGoError()
 		}
+		wg.Done()
 
 		if sdlRenderCopy(renderer, texture) {
 			return sdlToGoError()

@@ -35,9 +35,11 @@ func main() {
 				ev.Release()
 			}
 
-			if err := vsdl.Present(img); err != nil {
+			wg, err := vsdl.Present(img)
+			if err != nil {
 				log.Println(err)
 			}
+			wg.Wait()
 		}
 	}
 
